@@ -41,6 +41,6 @@ public class WorkoutPlanBuilder {
         if (durationInMinutes < MINIMUM_WORKOUT_DURATION) {
             throw new IllegalStateException("Duration must be at least " + MINIMUM_WORKOUT_DURATION + " minutes.");
         }
-        return new WorkoutPlan(goal, cardio); // толық өнімді қайтару
+        return new WorkoutPlan(goal, warmUp, cardio, strengthTraining, durationInMinutes);
     }
 }
