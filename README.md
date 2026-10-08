@@ -1,258 +1,72 @@
-# Workout Plan Builder
+# DAA — Assignment 2 report — Who Goes Next
 
-Java implementation of the **Builder** creational design pattern.
-Course: Software Design Patterns — Assignment #1 (Individual).
+Name: Urazbek Bek (SE-2512)
+Barcode: 252156
 
-## 1. What this product is
+## 1. Correctness
 
-The product being built is a **workout plan**: a goal, a warm-up, cardio,
-optional strength training, and a total duration. Assembling a plan is
-naturally incremental — you set the goal, then the warm-up, then cardio,
-then optionally strength work — and the *same* sequence of steps can
-produce genuinely different kinds of plans depending on fitness level.
-That is exactly the situation the Builder pattern is designed for.
+Output of `java Main 252156` (all lines OK):
 
-Two representations of a "finished plan" are supported from the exact
-same construction steps:
+```
+barcode,252156
+room,checksum,critical_served,critical_wait
+fifo,333383335000,996,4962833
+array,662867625159,2005,1245
+list,662867625159,2005,1245
+heap,662867625159,2005,1245
 
-- **BeginnerWorkoutPlan** — low intensity, adds a rest reminder.
-- **AdvancedWorkoutPlan** — high intensity, adds an estimated calorie burn.
+OK   FifoQueueRoom matches the fixed no-triage checksum for any barcode.
+OK   SortedListRoom calls the patients in exactly the same order as the given ArrayRoom.
+OK   HeapRoom calls the patients in exactly the same order as the given ArrayRoom.
+OK   FifoQueueRoom throws IllegalStateException on an empty room.
+OK   SortedListRoom throws IllegalStateException on an empty room.
+OK   HeapRoom throws IllegalStateException on an empty room.
+OK   CallLog records every call and recent(3) is non-destructive and most-recent-first.
 
-Swapping which concrete builder is handed to the Director (or used
-directly) is the only thing that changes — no `if (beginner) {...} else
-{...}` branching anywhere in client code.
-
-## 2. How the requirements map to the code
-
-| Requirement | Class(es) |
-|---|---|
-| Product | `WorkoutPlan` (interface), `BeginnerWorkoutPlan`, `AdvancedWorkoutPlan` |
-| Builder | `WorkoutPlanBuilder` (interface), `AbstractWorkoutPlanBuilder`, `BeginnerWorkoutPlanBuilder`, `AdvancedWorkoutPlanBuilder` |
-| Director | `WorkoutDirector` |
-| Client | `Main` |
-
-```mermaid
-classDiagram
-    class WorkoutPlan {
-        <<interface>>
-        +printSummary() String
-    }
-    class BeginnerWorkoutPlan
-    class AdvancedWorkoutPlan
-    WorkoutPlan <|.. BeginnerWorkoutPlan
-    WorkoutPlan <|.. AdvancedWorkoutPlan
-
-    class WorkoutPlanBuilder {
-        <<interface>>
-        +setGoal(String) WorkoutPlanBuilder
-        +addWarmUp(String) WorkoutPlanBuilder
-        +addCardio(String) WorkoutPlanBuilder
-        +addStrengthTraining(String) WorkoutPlanBuilder
-        +setDuration(int) WorkoutPlanBuilder
-        +build() WorkoutPlan
-    }
-    class AbstractWorkoutPlanBuilder {
-        #validateState()
-    }
-    class BeginnerWorkoutPlanBuilder
-    class AdvancedWorkoutPlanBuilder
-    WorkoutPlanBuilder <|.. AbstractWorkoutPlanBuilder
-    AbstractWorkoutPlanBuilder <|-- BeginnerWorkoutPlanBuilder
-    AbstractWorkoutPlanBuilder <|-- AdvancedWorkoutPlanBuilder
-    BeginnerWorkoutPlanBuilder ..> BeginnerWorkoutPlan : builds
-    AdvancedWorkoutPlanBuilder ..> AdvancedWorkoutPlan : builds
-
-    class WorkoutDirector {
-        +buildWeightLossPlan(builder) WorkoutPlan
-        +buildMuscleGainPlan(builder) WorkoutPlan
-    }
-    WorkoutDirector ..> WorkoutPlanBuilder : directs
-
-    class Main
-    Main ..> WorkoutDirector : uses
-    Main ..> WorkoutPlanBuilder : uses
+never called by the end of the shift, by severity:
+  no triage (fifo)   s5 1009     s4 1456     s3 2522     s2 2443     s1 2570  
+  with triage        s5 0        s4 0        s3 45       s2 4949     s1 5006
 ```
 
-**Why a Director specifically?** `WorkoutDirector` hardcodes two plan
-*shapes* ("weight loss" = running + 45 min, "muscle gain" = strength
-training + 60 min) so calling code never has to remember the right
-order/combination of builder calls. `Main` also shows the builder used
-*without* a Director, for a fully custom one-off plan — both are valid
-uses of the pattern, and the assignment brief asks for both.
+## 2. Complexity
 
-## 3. Build & run
+**SortedListRoom.add**
+- Worst case, one call: Θ(n). The new patient may belong at the very end, so the cursor walks the whole list (n nodes).
+- Amortised: also Θ(n) per call. There is no resize and no rare expensive step to spread out; a typical call still walks about half the list, so the cost does not shrink on average.
+- Why they are the same: the cost comes from walking the list on every call, not from an occasional event.
 
-**IntelliJ IDEA:** open the project folder and run `Main`.
+**HeapRoom.add**
+- Worst case, one call: Θ(n). The one call that finds the array full allocates an array of size 2n and copies n elements, exactly like `ArrayRoom.add`.
+- Amortised: O(log n) per call. Resizes happen only when the size reaches 4, 8, 16, ..., so total copying over n calls is O(n), which is O(1) per call; the sift-up adds O(log n) (the height of the heap) to every call.
+- Why they differ: the resize is rare (the array doubles), so its cost is spread over many cheap calls, while the Θ(n) worst case is real but happens only once per doubling.
 
-**Command line:**
-```bash
-javac -d out $(find src -name "*.java")
-java -cp out univ_assignments.SDP_ASS_1.Main
+## 3. Benchmark
+
+Output of `java Bench 252156` on my machine (best of 3, one warm-up):
+
+```
+A - one whole shift, milliseconds
+       n      array       list       heap
+    1000       1.28       0.98       0.95
+    5000       4.03       7.21       0.66
+   20000      77.48     120.44       1.56
+  from n=5000 to n=20000 (4x the patients):   array x19.2   list x16.7   heap x2.4
+
+B - the two operations on their own, in a room already holding 19000 patients
+    room      1000 adds, ms     1000 calls, ms
+   array              0.012             33.296
+    list             46.966              0.067
+    heap              0.029              0.164
 ```
 
-### Actual program output
-```
----- Director: reusable plan templates ----
+**Table A.** The room holds on the order of n patients, so array (`next` scans everyone) and list (`add` walks the list) cost Θ(n) per operation and Θ(n²) per shift: 4x the patients should cost about 16x. Measured: array x19.2 and list x16.7, which match (array is a little above 16x because a bigger array no longer fits in the CPU cache). The heap does Θ(n log n) work, so the prediction is about 4x·(log 20000 / log 5000) ≈ 4.6x, but I measured x2.4. This is lower than predicted because the heap's times are only about 1 ms, where JIT compilation and fixed overheads dominate (n=5000 was even faster than n=1000). The important point is the shape: the heap grows far slower than array and list, and at n=20000 it is about 50x faster than the array and 75x faster than the list.
 
-=== Beginner (low intensity) ===
-Goal: Weight Loss
-Warm-up: Jumping jacks
-Cardio: Running 30 mins
-Duration: 45 minutes
-Note: Rest 60-90 seconds between each exercise.
+**Table B.** Array: the expensive operation is the call (33.3 ms per 1000), because `next` scans all patients; `add` is almost free (0.012 ms), it only appends. List: the expensive operation is `add` (47.0 ms), because it walks to the right place; `next` only unlinks the head (0.067 ms). Heap: both are cheap (0.029 and 0.164 ms), matching O(log n). The heap's call is slower than its add because siftDown goes down the full height with two comparisons per level, while siftUp usually stops after a step or two.
 
-=== Advanced (high intensity) ===
-Goal: Weight Loss
-Warm-up: Jumping jacks
-Cardio: Running 30 mins
-Duration: 45 minutes
-Estimated calories burned: 428 kcal
+Numbers depend on my machine, JIT warm-up and background load, so only the growth shape is comparable, not the exact milliseconds.
 
-=== Advanced (high intensity) ===
-Goal: Muscle Gain
-Warm-up: Dynamic stretching
-Cardio: Brisk walking 10 mins
-Strength training: Squats, bench press, deadlifts (4x8)
-Duration: 60 minutes
-Estimated calories burned: 570 kcal
+## 4. Triage effect
 
----- Client: fully custom plan (no Director) ----
+From the "never called" table (barcode 252156): with no triage 1009 severity-5 patients and 1456 severity-4 patients were never called; with triage both are 0, and severity 3 drops from 2522 to 45. Triage also cut the average wait of critical patients from about 4983 minutes (4962833 / 996 served) to about 0.6 minutes (1245 / 2005 served).
 
-=== Beginner (low intensity) ===
-Goal: Flexibility
-Warm-up: Light jogging 5 mins
-Cardio: Jump rope 10 mins
-Duration: 20 minutes
-Note: Rest 60-90 seconds between each exercise.
-
----- Client: invalid build is rejected ----
-
-Build correctly rejected: Cannot build workout plan: warm-up is required
-```
-Notice the same `buildWeightLossPlan()` call produces two different
-printed representations (Beginner vs Advanced) — this is the "same
-construction process, different representations" idea the Builder
-pattern is named for.
-
-## 4. Clean Code principles applied
-
-### 4.1 Meaningful, intention-revealing names
-No abbreviations, no `Manager`/`Data`/`Info` filler; a name alone tells
-you what a method does.
-
-**Without this principle:**
-```java
-public interface Bldr {
-    Bldr s1(String x);
-    Object bld();
-}
-```
-**Applied here** (`WorkoutPlanBuilder.java`):
-```java
-public interface WorkoutPlanBuilder {
-    WorkoutPlanBuilder setGoal(String goal);
-    WorkoutPlan build();
-}
-```
-
-### 4.2 Small methods that each do one thing
-`build()` does not also validate — it delegates to `validateState()`.
-`printSummary()` does not also compute calories — that is
-`estimateCaloriesBurned()`'s job.
-
-**Without this principle:**
-```java
-public WorkoutPlan build() {
-    if (goal == null || warmUp == null || cardio == null
-            || durationInMinutes < 15) {
-        throw new IllegalStateException("invalid plan");
-    }
-    System.out.println("Built a plan for " + goal);
-    return new BeginnerWorkoutPlan(goal, warmUp, cardio, strengthTraining, durationInMinutes);
-}
-```
-**Applied here** (`BeginnerWorkoutPlanBuilder.java`):
-```java
-@Override
-public WorkoutPlan build() {
-    validateState();
-    return new BeginnerWorkoutPlan(goal, warmUp, cardio, strengthTraining, durationInMinutes);
-}
-```
-
-### 4.3 Small, focused classes
-Each class has exactly one reason to change: `BeginnerWorkoutPlan` /
-`AdvancedWorkoutPlan` only format and present a finished plan;
-`AbstractWorkoutPlanBuilder` only accumulates state and validates it;
-`WorkoutDirector` only knows two plan "shapes". Nothing is a single
-giant class doing everything.
-
-### 4.4 Validated construction — fail fast with a clear exception
-`build()` never returns a half-built object. Every concrete builder
-calls `validateState()` first, which throws `IllegalStateException`
-with a message that says exactly what is missing.
-
-**Without this principle:**
-```java
-public WorkoutPlan build() {
-    return new BeginnerWorkoutPlan(goal, warmUp, cardio, strengthTraining, durationInMinutes);
-    // goal == null here just silently produces a broken plan
-}
-```
-**Applied here** (`AbstractWorkoutPlanBuilder.java`):
-```java
-protected void validateState() {
-    if (goal == null || goal.isBlank()) {
-        throw new IllegalStateException("Cannot build workout plan: goal is required");
-    }
-    if (durationInMinutes < MINIMUM_WORKOUT_DURATION_MINUTES) {
-        throw new IllegalStateException(
-                "Cannot build workout plan: duration must be at least "
-                        + MINIMUM_WORKOUT_DURATION_MINUTES + " minutes");
-    }
-    // ...
-}
-```
-`Main.demonstrateValidationFailure()` shows this being caught and
-reported cleanly instead of crashing the program.
-
-### 4.5 No magic numbers or strings
-Every "unexplained" literal became a named constant with a comment
-where the meaning isn't obvious.
-
-**Without this principle:**
-```java
-if (durationInMinutes < 15) { ... }        // why 15?
-double calories = minutes * 9.5;           // why 9.5?
-```
-**Applied here:**
-```java
-protected static final int MINIMUM_WORKOUT_DURATION_MINUTES = 15;
-...
-/** Rough estimate of calories burned per minute of a high-intensity session. */
-private static final double CALORIES_PER_MINUTE_ESTIMATE = 9.5;
-```
-
-### 4.6 Encapsulation (bonus)
-`WorkoutPlan` fields are `private final` and only ever set once, through
-the constructor called from `build()` — nothing outside the product
-class can mutate a plan after it is created.
-
-## 5. Project structure
-```
-workout-builder/
-├── README.md
-└── src/main/java/univ_assignments/SDP_ASS_1/
-    ├── Main.java
-    ├── WorkoutPlan.java
-    ├── BeginnerWorkoutPlan.java
-    ├── AdvancedWorkoutPlan.java
-    ├── WorkoutPlanBuilder.java
-    ├── AbstractWorkoutPlanBuilder.java
-    ├── BeginnerWorkoutPlanBuilder.java
-    ├── AdvancedWorkoutPlanBuilder.java
-    └── WorkoutDirector.java
-```
-
-## 6. Author
-SE-2512 Urazbek Bek — individual assignment, Software Design Patterns.
+The cost falls on the least severe: never-called severity 2 rises from 2443 to 4949 and severity 1 from 2570 to 5006, roughly doubling, because the doctor calls only 10,000 of 20,000 patients and the severe ones take those slots first.
