@@ -1,72 +1,81 @@
-# DAA — Assignment 2 report — Who Goes Next
+# Assignment 3. Maze Escape
 
-Name: Urazbek Bek (SE-2512)
-Barcode: 252156
+Student ID: 252156
+Name: Urazbek Bek
+Group: SE-2512
+Maze size (rows x columns): 8 x 8
 
-## 1. Correctness
+## Program output
 
-Output of `java Main 252156` (all lines OK):
+The 13 lines my program prints on my data (`java -cp out Main`):
 
-```
-barcode,252156
-room,checksum,critical_served,critical_wait
-fifo,333383335000,996,4962833
-array,662867625159,2005,1245
-list,662867625159,2005,1245
-heap,662867625159,2005,1245
+    Broken: 63
+    Kept: 49
+    Last broken wall: 93
+    MST cost: 20888
+    Heaviest broken wall: 748
+    Path length: 16
+    DFS visited: 49
+    Dead ends: 19
+    Zones: 8
+    Largest zone: 12
+    Is DAG: 0
+    Flow stages: 5
+    Fastest route cost: 22
 
-OK   FifoQueueRoom matches the fixed no-triage checksum for any barcode.
-OK   SortedListRoom calls the patients in exactly the same order as the given ArrayRoom.
-OK   HeapRoom calls the patients in exactly the same order as the given ArrayRoom.
-OK   FifoQueueRoom throws IllegalStateException on an empty room.
-OK   SortedListRoom throws IllegalStateException on an empty room.
-OK   HeapRoom throws IllegalStateException on an empty room.
-OK   CallLog records every call and recent(3) is non-destructive and most-recent-first.
+ 
 
-never called by the end of the shift, by severity:
-  no triage (fifo)   s5 1009     s4 1456     s3 2522     s2 2443     s1 2570  
-  with triage        s5 0        s4 0        s3 45       s2 4949     s1 5006
-```
+## Questions
 
-## 2. Complexity
+Mission 0. What do find and union do, and what makes them fast in your code?
 
-**SortedListRoom.add**
-- Worst case, one call: Θ(n). The new patient may belong at the very end, so the cursor walks the whole list (n nodes).
-- Amortised: also Θ(n) per call. There is no resize and no rare expensive step to spread out; a typical call still walks about half the list, so the cost does not shrink on average.
-- Why they are the same: the cost comes from walking the list on every call, not from an occasional event.
+`find(x)` walks up the parent pointers to the root of the set of x and then points every cell on the way straight at the root (path compression). `union(a, b)` finds both roots; if they differ, it hangs the smaller tree under the larger one (union by size) and returns true, otherwise it returns false. These two tricks keep the trees almost flat, so one operation costs almost O(1). `find` is a loop, not recursion, so a long chain cannot overflow the stack.
 
-**HeapRoom.add**
-- Worst case, one call: Θ(n). The one call that finds the array full allocates an array of size 2n and copies n elements, exactly like `ArrayRoom.add`.
-- Amortised: O(log n) per call. Resizes happen only when the size reaches 4, 8, 16, ..., so total copying over n calls is O(n), which is O(1) per call; the sift-up adds O(log n) (the height of the heap) to every call.
-- Why they differ: the resize is rare (the array doubles), so its cost is spread over many cheap calls, while the Θ(n) worst case is real but happens only once per doubling.
+Mission 1. Why is Broken always R*C - 1, and Kept always (R-1)*(C-1)?
 
-## 3. Benchmark
+At the start there are R*C sets, one per cell. A wall is broken only when `union` joins two different sets, so every broken wall reduces the number of sets by exactly one. The grid is connected, so at the end there is one set, and that needs exactly R*C - 1 successful unions. There are 2RC - R - C inner walls, so Kept = 2RC - R - C - (RC - 1) = (R-1)*(C-1). For my 8 x 8 maze: Broken = 63, Kept = 49.
 
-Output of `java Bench 252156` on my machine (best of 3, one warm-up):
+Mission 2. My MST cost from Kruskal and from Prim, and why they are equal:
 
-```
-A - one whole shift, milliseconds
-       n      array       list       heap
-    1000       1.28       0.98       0.95
-    5000       4.03       7.21       0.66
-   20000      77.48     120.44       1.56
-  from n=5000 to n=20000 (4x the patients):   array x19.2   list x16.7   heap x2.4
+Both give 20888. All wall costs are different, so the cheapest maze is unique. Both algorithms use the same rule: the cheapest wall that joins two different parts of the maze is always safe to break. Kruskal applies it with the sets of the DSU, Prim applies it to one growing part, so they find the same tree and the same total cost.
 
-B - the two operations on their own, in a room already holding 19000 patients
-    room      1000 adds, ms     1000 calls, ms
-   array              0.012             33.296
-    list             46.966              0.067
-    heap              0.029              0.164
-```
+Mission 3. Why is there exactly one path between two cells? How did you avoid a stack overflow on a huge maze?
 
-**Table A.** The room holds on the order of n patients, so array (`next` scans everyone) and list (`add` walks the list) cost Θ(n) per operation and Θ(n²) per shift: 4x the patients should cost about 16x. Measured: array x19.2 and list x16.7, which match (array is a little above 16x because a bigger array no longer fits in the CPU cache). The heap does Θ(n log n) work, so the prediction is about 4x·(log 20000 / log 5000) ≈ 4.6x, but I measured x2.4. This is lower than predicted because the heap's times are only about 1 ms, where JIT compilation and fixed overheads dominate (n=5000 was even faster than n=1000). The important point is the shape: the heap grows far slower than array and list, and at n=20000 it is about 50x faster than the array and 75x faster than the list.
+The maze is a tree: it is connected, because all cells end in one set, and it has no cycle, because a wall is broken only if its two cells are in different sets. Two different paths between two cells would contain a cycle, so there is exactly one path. My DFS uses my own array `stack` instead of recursion, so the depth is limited by memory and not by the call stack. I tested a 1000 x 1000 maze with `-Xss256k` and it worked.
 
-**Table B.** Array: the expensive operation is the call (33.3 ms per 1000), because `next` scans all patients; `add` is almost free (0.012 ms), it only appends. List: the expensive operation is `add` (47.0 ms), because it walks to the right place; `next` only unlinks the head (0.067 ms). Heap: both are cheap (0.029 and 0.164 ms), matching O(log n). The heap's call is slower than its add because siftDown goes down the full height with two comparisons per level, while siftUp usually stops after a step or two.
+Mission 4. Why does the second pass of Kosaraju go on the reversed graph? Why do the slides have no cycle exactly when Zones equals the number of cells?
 
-Numbers depend on my machine, JIT warm-up and background load, so only the growth shape is comparable, not the exact milliseconds.
+The cell that finishes last in the first pass lies in a zone that has no slides coming in from other zones. On the reversed slides this zone has no way out, so DFS from that cell collects exactly this one zone. On the normal slides DFS would run into the next zones and mix them. A cycle puts all its cells into one zone with at least two cells, so there would be fewer zones than cells. If Zones equals the number of cells, every zone has one cell, and since no slide goes from a cell to itself, there is no cycle.
 
-## 4. Triage effect
+Mission 5. Why is it enough to go through the zones in the order of their numbers? What does this pass cost?
 
-From the "never called" table (barcode 252156): with no triage 1009 severity-5 patients and 1456 severity-4 patients were never called; with triage both are 0, and severity 3 drops from 2522 to 45. Triage also cut the average wait of critical patients from about 4983 minutes (4962833 / 996 served) to about 0.6 minutes (1245 / 2005 served).
+The numbers are a topological order: every slide between two zones goes from a smaller number to a larger one. When we reach zone X, all zones with a slide into X are already done, so the stages and the cost of X are final, and we only relax the slides that leave X. The zone graph has no cycle, so no priority queue is needed. The cost is O(n + S) time and O(n + S) space: a counting sort of the slides by zone and one pass over zones and slides.
 
-The cost falls on the least severe: never-called severity 2 rises from 2443 to 4949 and severity 1 from 2570 to 5006, roughly doubling, because the doctor calls only 10,000 of 20,000 patients and the severe ones take those slots first.
+## AI use
+
+Tool: Claude (Anthropic). I used it to write a first version of the code for Missions 0 to 5, to draft the answers in this README, and to explain the algorithms (DSU, Kruskal, Prim, iterative DFS, Kosaraju). The code was checked with `java tools/Check.java`, with my own DSU checks in `DisjointSetTest`, with a 1000 x 1000 maze, and against an independent reference solution on random mazes. I did not copy code from books or websites.
+
+## Timing (Mission 7)
+
+Milliseconds, 5 runs each (average), from `java -cp out Bench`.
+
+| maze | Kruskal | Prim |
+|---|---|---|
+| 100 x 100 | 11 | 11 |
+| 300 x 300 | 57 | 67 |
+| 1000 x 1000 | 327 | 1252 |
+
+Both grow a little faster than linearly, as O(m log m) predicts: from 300 x 300 to 1000 x 1000 there are 11 times more cells, and Kruskal takes about 6 times longer, Prim about 19 times longer. On the largest maze Prim is about 4 times slower than Kruskal: its PriorityQueue holds boxed Long objects and jumps around in memory, while Kruskal sorts one array of primitive longs and then does almost constant-time DSU operations.
+
+## Complexity
+
+n is the number of cells, m the number of walls (or slides).
+
+| algorithm | time | space | assumptions |
+|---|---|---|---|
+| DSU find and union | O(alpha(n)) amortized per operation, almost O(1) | O(n) | union by size and path compression together; one `find` alone can be O(log n) |
+| Kruskal | O(m log m) = O(m log n) | O(n + m) | sorting of m walls dominates; the m DSU operations cost O(m alpha(n)) |
+| Prim | O(m log m) = O(m log n) | O(n + m) | binary-heap PriorityQueue with lazy deletion (up to 2m entries); graph in arrays |
+| DFS | O(n + m) | O(n) | own stack, no recursion; in the maze m = n - 1 because it is a tree |
+| Kosaraju | O(n + m) | O(n + m) | two DFS passes, one on the slides and one on the reversed slides; m = number of slides |
+| Route in the zone graph | O(n + m) | O(n + m) | zones in topological order, one pass, no priority queue; counting sort of slides by zone |
