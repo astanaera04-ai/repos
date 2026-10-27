@@ -51,10 +51,7 @@ Mission 5. Why is it enough to go through the zones in the order of their number
 
 The numbers are a topological order: every slide between two zones goes from a smaller number to a larger one. When we reach zone X, all zones with a slide into X are already done, so the stages and the cost of X are final, and we only relax the slides that leave X. The zone graph has no cycle, so no priority queue is needed. The cost is O(n + S) time and O(n + S) space: a counting sort of the slides by zone and one pass over zones and slides.
 
-## AI use
-
-Tool: Claude (Anthropic). I used it to write a first version of the code for Missions 0 to 5, to draft the answers in this README, and to explain the algorithms (DSU, Kruskal, Prim, iterative DFS, Kosaraju). The code was checked with `java tools/Check.java`, with my own DSU checks in `DisjointSetTest`, with a 1000 x 1000 maze, and against an independent reference solution on random mazes. I did not copy code from books or websites.
-
+ 
 ## Timing (Mission 7)
 
 Milliseconds, 5 runs each (average), from `java -cp out Bench`.
