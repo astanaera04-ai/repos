@@ -2,9 +2,9 @@ package univ_assignments.DAA_ASS_3;
 
 import java.util.*;
 
-public class Maze {
+public class  Maze {
 
-    /** Mission 1. Қабырғаларды файл ретімен алу; ұяшықтары әр түрлі жиында болса сындыру. */
+    /** Mission 1. for (int i = m - 1; i >= 0; i--)Қабырғаларды файл ретімен алу; ұяшықтары әр түрлі жиында болса сындыру. */
     public static int[] breakWalls(Input.Walls w) {
         DisjointSet dsu = new DisjointSet(w.cells());
         int[] broken = new int[w.cells() - 1];   // ағаш ешқашан cells-1 қырдан көп болмайды

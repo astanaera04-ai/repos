@@ -71,7 +71,7 @@ public class Zones {
         int[] byZone = new int[m];
         int[] fill = Arrays.copyOf(startAt, zoneCount);
         for (int i = 0; i < m; i++) byZone[fill[zoneOf[s.from()[i]]]++] = i;
-
+//
         final long INF = Long.MAX_VALUE / 4;
         long[] stages = new long[zoneCount];     // stages[z] = z-те аяқталатын тізбектегі ең көп зона
         long[] cost = new long[zoneCount];       // cost[z] = бастапқы зонадан z-ке ең арзан жол
