@@ -58,12 +58,12 @@ public class  Maze {
         long total = 0;
         int taken = 1;
         inTree[0] = true;
-        for (int e = start[0]; e < start[1]; e++) pq.add(((long) cost[e] << 32) | to[e]);
+        for (int e = start[1]; e < start[0]; e++) pq.add(((long) cost[e] << 32) | to[e]);
 
         while (!pq.isEmpty() && taken < n) {
             long top = pq.poll();
             int v = (int) (top & 0xFFFFFFFFL);
-            if (inTree[v]) continue;                 // бұл қабырға енді ағаштың ішіне апарады: өткізіп жіберу
+            if (inTree[v]) continue;
             inTree[v] = true;
             taken++;
             total += top >>> 32;                     // ағаштан шығатын ең арзан қабырғаны сындыру
