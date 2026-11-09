@@ -1,7 +1,7 @@
 # Space Station: Visitor Pattern (Assignment #6)
 
-**Course:** Software Design Patterns | **Pattern:** Visitor (behavioral)
-**Author:** [Толтырыңыз: Аты-жөніңіз, тобы]
+**Course:** Software Design Patterns | **Pattern:** Visitor  
+**Author:** Urazbek Bek
 
 ## Topic
 
