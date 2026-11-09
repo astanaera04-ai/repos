@@ -62,7 +62,6 @@ public class Main {
         Render.page(st, genome, mk, hits, tree, cheapest,
                 new long[]{mutations, core, hits.length, hits.length == 0 ? -1 : hits[0], border, shared, tests, cost, chain},
                 "output/outbreak.html");
-        System.out.println("CWD = " + new java.io.File(".").getAbsolutePath());
-    }
+
     }
 }
